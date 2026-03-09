@@ -280,6 +280,19 @@
             <button onclick="setQuick('custom')" id="qCustom" class="text-xs border border-blue-200 bg-blue-50 text-blue-600 rounded-lg px-3 py-1.5 transition-colors">Custom</button>
           </div>
 
+          <!-- Timezone selector -->
+          <div class="mb-4">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1.5">Timezone</label>
+            <select id="tzSelect" onchange="updateSummary()"
+              class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 bg-white text-gray-700">
+              <option value="UTC">UTC — Coordinated Universal Time</option>
+              <option value="PHT">UTC+8 — Philippines (PHT)</option>
+              <option value="IST">UTC+5:30 — Sri Lanka / India (IST)</option>
+              <option value="CST">UTC−6 — Central Time (CST)</option>
+              <option value="CLIENT">Client local time — auto</option>
+            </select>
+          </div>
+
           <div class="flex gap-6">
 
             <!-- Calendar -->
@@ -520,6 +533,7 @@
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const TODAY = new Date(2026, 2, 9);
+  const TZ_LABELS = { UTC: '(UTC)', PHT: '(UTC+8)', IST: '(UTC+5:30)', CST: '(UTC−6)', CLIENT: '(client tz)' };
 
   let calMonth = 2, calYear = 2026, selectedDate = null;
   let schedulerOpen = false;
@@ -614,7 +628,9 @@
     const h = document.getElementById('tHour').value;
     const m = String(document.getElementById('tMin').value).padStart(2, '0');
     const ap = document.getElementById('tAMPM').value;
-    const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap}`;
+    const tz = document.getElementById('tzSelect').value;
+    const tzLabel = TZ_LABELS[tz] || '';
+    const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap} ${tzLabel}`;
     document.getElementById('selectedSummaryText').textContent = label;
     document.getElementById('selectedSummaryBox').classList.remove('hidden');
     document.getElementById('confirmBtn').disabled = false;
@@ -675,7 +691,9 @@
     const h = document.getElementById('tHour').value;
     const m = String(document.getElementById('tMin').value).padStart(2, '0');
     const ap = document.getElementById('tAMPM').value;
-    const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap}`;
+    const tz = document.getElementById('tzSelect').value;
+    const tzLabel = TZ_LABELS[tz] || '';
+    const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap} ${tzLabel}`;
 
     const msgText = document.getElementById('messageInput').value;
     document.getElementById('scheduledMsgText').textContent = msgText;
