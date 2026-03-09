@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MAE-762 · S3 — Failed Delivery</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="font-sans antialiased">
+
+<!-- ── RETRY MODAL ── -->
+<div id="retryModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+    <div class="flex items-start gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">Message failed to send</h3>
+        <p class="text-xs text-gray-500 mt-1 leading-relaxed">This message was scheduled for <strong class="text-gray-700">Mar 5, 9:00 AM (UTC)</strong>. That time has passed — choose how to proceed.</p>
+      </div>
+    </div>
+    <!-- Message preview -->
+    <div class="bg-gray-50 rounded-xl p-3 mb-5 border border-gray-100">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Message Preview</p>
+      <p class="text-xs text-gray-700 leading-relaxed">Hi Laura! Here's the pricing breakdown for Ventana Inn — standard rooms from $850/night. Want me to check availability for your June dates?</p>
+    </div>
+    <!-- Actions -->
+    <div class="space-y-2.5">
+      <button onclick="sendNowFromRetry()"
+        class="w-full bg-gray-900 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        Send Now
+      </button>
+      <button onclick="rescheduleFromRetry()"
+        class="w-full border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg>
+        Reschedule
+      </button>
+      <button onclick="closeRetryModal()" class="w-full text-xs text-gray-400 py-1.5 hover:text-gray-600 transition-colors">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN LAYOUT ── -->
+<div class="flex flex-col h-screen bg-gray-50 overflow-hidden">
+
+  <!-- ── TOP HEADER ── -->
+  <header class="bg-white border-b border-gray-200 px-6 flex items-center shrink-0" style="height:64px">
+    <div class="flex items-center">
+      <img src="https://maestroassets.s3.eu-north-1.amazonaws.com/public/Maestro-logo-simple.svg"
+           alt="Maestro Command Center Logo" class="h-6 mr-2">
+    </div>
+    <div class="ml-auto flex items-center space-x-3">
+      <!-- WhatsApp Down status pill — relevant to failed delivery scenario -->
+      <div class="flex items-center gap-1.5 text-xs text-gray-600 border border-red-200 rounded-full px-3 py-1 bg-red-50">
+        <span class="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse"></span>
+        WhatsApp Down
+      </div>
+      <button class="w-8 h-8 rounded flex border items-center justify-center transition-all duration-200 border-gray-300 bg-white text-gray-600 hover:bg-gray-50" title="Hide conversations">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+      </button>
+      <button class="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-all duration-200" title="Dark mode">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+      <a href="s2-scheduled.html" title="Scheduled Messages"
+        class="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-all duration-200 relative">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+        </svg>
+        <span class="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-white"></span>
+      </a>
+      <button class="w-8 h-8 rounded border border-gray-300 bg-white flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-all duration-200" title="Settings">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-xs font-bold text-white">M</div>
+    </div>
+  </header>
+
+  <!-- ── THREE-PANEL BODY ── -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- ── LEFT PANEL (280px) ── -->
+    <div class="flex-shrink-0 border-r border-gray-200 flex flex-col bg-white overflow-hidden" style="width:280px">
+
+      <!-- Search -->
+      <div class="p-3 border-b border-gray-100 shrink-0">
+        <div class="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 px-2.5 h-9 mb-2.5">
+          <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" placeholder="Search..." class="flex-1 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none bg-transparent" />
+        </div>
+      </div>
+
+      <!-- Status tabs -->
+      <div class="bg-white border-b border-gray-100">
+        <div class="flex px-4 overflow-x-auto">
+          <button class="px-0 py-3 mr-4 text-sm font-medium flex cursor-pointer whitespace-nowrap transition-colors duration-200 text-blue-600 border-b-2 border-blue-600">All</button>
+          <button class="px-0 py-3 mr-4 text-sm font-medium flex cursor-pointer whitespace-nowrap transition-colors duration-200 text-gray-500 hover:text-gray-700">New</button>
+          <button class="px-0 py-3 mr-4 text-sm font-medium flex cursor-pointer whitespace-nowrap transition-colors duration-200 text-gray-500 hover:text-gray-700">In Progress</button>
+          <button class="px-0 py-3 mr-4 text-sm font-medium flex cursor-pointer whitespace-nowrap transition-colors duration-200 text-gray-500 hover:text-gray-700">Done</button>
+        </div>
+      </div>
+
+      <!-- Scheduled Messages shortcut row -->
+      <a href="s2-scheduled.html"
+         class="flex items-center gap-2.5 px-4 py-2 bg-red-50 border-b border-red-100 hover:bg-red-100 transition-colors duration-200 group shrink-0">
+        <svg class="w-3.5 h-3.5 text-red-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+        </svg>
+        <span class="flex-1 text-xs font-medium text-red-700">Scheduled Messages</span>
+        <span class="text-[10px] font-semibold bg-red-500 text-white rounded-full px-1.5 py-0.5 leading-none">1 failed</span>
+        <svg class="w-3 h-3 text-red-400 group-hover:translate-x-0.5 transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </a>
+
+      <!-- Conversation list -->
+      <div class="flex-1 overflow-y-auto">
+
+        <!-- ── Scenario A: Laura Duncan — FAILED message ── -->
+        <div id="convLaura" onclick="switchScenario('failed')"
+          class="py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 bg-blue-50">
+          <div class="flex items-start gap-3">
+            <div class="relative shrink-0">
+              <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-700">LD</div>
+              <!-- Red failed dot -->
+              <span class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
+                <svg class="w-2 h-2 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between mb-0.5">
+                <p class="text-sm font-semibold text-gray-900 truncate">Laura Duncan</p>
+                <span class="text-[10px] text-gray-400 shrink-0 ml-1">Mar 5</span>
+              </div>
+              <p class="text-xs text-gray-500 truncate">Ventana pricing breakdown...</p>
+              <div class="flex items-center gap-1 mt-1">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-600">
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01"/></svg>
+                  1 failed
+                </span>
+                <span class="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">Scenario A</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Scenario B: Prahar Shah — SCHEDULED message ── -->
+        <div id="convPrahar" onclick="switchScenario('scheduled')"
+          class="py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 hover:bg-gray-50">
+          <div class="flex items-start gap-3">
+            <div class="relative shrink-0">
+              <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-sm font-bold text-green-700">PS</div>
+              <!-- Blue scheduled dot -->
+              <span class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center">
+                <svg class="w-2 h-2 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg>
+              </span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between mb-0.5">
+                <p class="text-sm font-semibold text-gray-900 truncate">Prahar Shah</p>
+                <span class="text-[10px] text-gray-400 shrink-0 ml-1">9:00a</span>
+              </div>
+              <p class="text-xs text-gray-500 truncate">Japan trip — ryokan options...</p>
+              <div class="flex items-center gap-1 mt-1">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-600">
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg>
+                  1 scheduled
+                </span>
+                <span class="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">Scenario B</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Other conversations -->
+        <div class="py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 hover:bg-gray-50">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-sm font-bold text-purple-700 shrink-0">PM</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between mb-0.5">
+                <p class="text-sm font-semibold text-gray-900 truncate">Prudence Momanyi</p>
+                <span class="text-[10px] text-gray-400 shrink-0 ml-1">Tue</span>
+              </div>
+              <p class="text-xs text-gray-500 truncate">Canada national parks...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 hover:bg-gray-50">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-sm font-bold text-amber-700 shrink-0">MR</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between mb-0.5">
+                <p class="text-sm font-semibold text-gray-900 truncate">Michael Rowe</p>
+                <span class="text-[10px] text-gray-400 shrink-0 ml-1">Mon</span>
+              </div>
+              <p class="text-xs text-gray-500 truncate">Maldives — overwater bungalow...</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── MIDDLE PANEL ── -->
+    <div class="flex-1 min-w-0 border-r border-gray-200 flex flex-col overflow-hidden">
+
+      <!-- Chat header (dynamic) -->
+      <div class="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between shrink-0" style="height:57px">
+        <div class="flex items-center gap-3">
+          <div id="headerAvatar" class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700">LD</div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="headerName" class="text-sm font-semibold text-gray-900 leading-none">Laura Duncan</h2>
+              <!-- Scenario badge -->
+              <span id="headerBadge" class="inline-flex items-center gap-1 text-[10px] font-semibold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01"/></svg>
+                1 message failed
+              </span>
+            </div>
+            <p id="headerSub" class="text-xs text-gray-400 mt-0.5">Big Sur — June 2026</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors">Trip Details</button>
+          <button class="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors">Client Profile</button>
+        </div>
+      </div>
+
+      <!-- Messages area -->
+      <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5 bg-gray-50" id="messagesArea">
+
+        <!-- ── SCENARIO A: Laura Duncan (Failed) ── -->
+        <div id="scenarioA">
+          <!-- Date divider -->
+          <div class="flex items-center gap-3 mb-5">
+            <div class="flex-1 h-px bg-gray-200"></div>
+            <span class="text-xs text-gray-400">March 4, 2026</span>
+            <div class="flex-1 h-px bg-gray-200"></div>
+          </div>
+
+          <!-- Agent message -->
+          <div class="flex items-start gap-3 mb-5">
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">H</div>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold text-blue-600">Hannah</span>
+                <span class="text-xs text-gray-400">9:15 AM</span>
+              </div>
+              <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 max-w-md">
+                <p class="text-sm text-gray-700 leading-relaxed">Hi Laura! Just checking in — have you had a chance to review the Big Sur hotel options we sent over? Happy to walk through them anytime.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Client reply -->
+          <div class="flex items-start gap-3 flex-row-reverse mb-5">
+            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 shrink-0">LD</div>
+            <div class="flex flex-col items-end">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs text-gray-400">2:30 PM</span>
+                <span class="text-xs font-semibold text-gray-700">Laura Duncan</span>
+              </div>
+              <div class="bg-indigo-500 rounded-2xl rounded-tr-sm px-4 py-3 max-w-md">
+                <p class="text-sm text-white leading-relaxed">Yes! Loved the Ventana option. Can you send me the pricing breakdown?</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Date divider -->
+          <div class="flex items-center gap-3 mb-5">
+            <div class="flex-1 h-px bg-gray-200"></div>
+            <span class="text-xs text-gray-400">March 5, 2026</span>
+            <div class="flex-1 h-px bg-gray-200"></div>
+          </div>
+
+          <!-- FAILED MESSAGE bubble -->
+          <div id="failedBubble" class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">H</div>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold text-blue-600">Hannah</span>
+                <span class="text-xs text-red-400 font-medium italic">Failed to send</span>
+              </div>
+              <!-- Bubble with red dashed border -->
+              <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border-2 border-dashed border-red-200 max-w-md opacity-70">
+                <p class="text-sm text-gray-700 leading-relaxed">Hi Laura! Here's the pricing breakdown for Ventana Inn — standard rooms from $850/night. Want me to check availability for your June dates?</p>
+              </div>
+              <!-- Failed badge + retry CTA -->
+              <div class="flex items-center gap-2 mt-1.5">
+                <svg class="w-3 h-3 text-red-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+                <span class="text-xs text-red-500 font-medium">Failed · Was scheduled Mar 5, 9:00 AM (UTC)</span>
+                <span class="text-gray-300 text-xs">·</span>
+                <button onclick="openRetryModal()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors">Retry →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SENT: shown after "Send Now" from retry modal -->
+          <div id="sentBubble" class="hidden flex items-start gap-3 mt-5">
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">H</div>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold text-blue-600">Hannah</span>
+                <span class="text-xs text-gray-400">Sent now</span>
+              </div>
+              <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 max-w-md">
+                <p class="text-sm text-gray-700 leading-relaxed">Hi Laura! Here's the pricing breakdown for Ventana Inn — standard rooms from $850/night. Want me to check availability for your June dates?</p>
+              </div>
+              <div class="flex items-center gap-1.5 mt-1.5">
+                <svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                <span class="text-xs text-green-600 font-medium">Delivered</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- RESCHEDULED: shown after "Reschedule" + confirm -->
+          <div id="rescheduledBubble" class="hidden flex items-start gap-3 mt-5">
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">H</div>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold text-blue-600">Hannah</span>
+                <span class="text-xs text-gray-400 italic">Scheduled</span>
+              </div>
+              <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border-2 border-dashed border-blue-200 max-w-md">
+                <p class="text-sm text-gray-700 leading-relaxed">Hi Laura! Here's the pricing breakdown for Ventana Inn — standard rooms from $850/night. Want me to check availability for your June dates?</p>
+              </div>
+              <div class="flex items-center gap-2 mt-1.5">
+                <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+                </svg>
+                <span class="text-xs text-blue-500 font-medium" id="rescheduledLabel">Rescheduled · —</span>
+                <span class="text-gray-300 text-xs">·</span>
+                <button class="text-xs text-gray-500 hover:underline">Edit</button>
+                <button class="text-xs text-red-400 hover:underline">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── SCENARIO B: Prahar Shah (Scheduled) ── -->
+        <div id="scenarioB" class="hidden">
+          <!-- Date divider -->
+          <div class="flex items-center gap-3 mb-5">
+            <div class="flex-1 h-px bg-gray-200"></div>
+            <span class="text-xs text-gray-400">March 7, 2026</span>
+            <div class="flex-1 h-px bg-gray-200"></div>
+          </div>
+
+          <!-- Agent message -->
+          <div class="flex items-start gap-3 mb-5">
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">H</div>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold text-blue-600">Hannah</span>
+                <span class="text-xs text-gray-400">10:00 AM</span>
+              </div>
+              <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 max-w-md">
+                <p class="text-sm text-gray-700 leading-relaxed">Hi Prahar! I've shortlisted 3 ryokan options in Kyoto for your trip. Let me know if you'd like more details on any of them.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Client reply -->
+          <div class="flex items-start gap-3 flex-row-reverse mb-5">
+            <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-xs font-bold text-green-700 shrink-0">PS</div>
+            <div class="flex flex-col items-end">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs text-gray-400">11:15 AM</span>
+                <span class="text-xs font-semibold text-gray-700">Prahar Shah</span>
+              </div>
+              <div class="bg-green-600 rounded-2xl rounded-tr-sm px-4 py-3 max-w-md">
+                <p class="text-sm text-white leading-relaxed">These look great. Can you follow up on Monday morning with availability and pricing?</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Date divider -->
+          <div class="flex items-center gap-3 mb-5">
+            <div class="flex-1 h-px bg-gray-200"></div>
+            <span class="text-xs text-gray-400">March 9, 2026</span>
+            <div class="flex-1 h-px bg-gray-200"></div>
+          </div>
+
+          <!-- SCHEDULED bubble (active, pending) -->
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">H</div>
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold text-blue-600">Hannah</span>
+                <span class="text-xs text-gray-400 italic">Scheduled</span>
+              </div>
+              <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border-2 border-dashed border-blue-200 max-w-md">
+                <p class="text-sm text-gray-700 leading-relaxed">Hi Prahar! Following up — here's the availability and pricing for the 3 ryokan options in Kyoto. Hiiragiya Honkan starts from ¥85,000/night.</p>
+              </div>
+              <div class="flex items-center gap-2 mt-1.5">
+                <svg class="w-3 h-3 text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+                </svg>
+                <span class="text-xs text-blue-500 font-medium">Scheduled · Mar 10, 9:00 AM (UTC+8)</span>
+                <span class="text-gray-300 text-xs">·</span>
+                <button class="text-xs text-gray-500 hover:text-gray-700 hover:underline">Edit</button>
+                <button class="text-xs text-red-400 hover:text-red-600 hover:underline">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ── COMPOSER AREA ── -->
+      <div class="bg-white border-t border-gray-200 p-4 shrink-0 relative" id="composerArea">
+
+        <!-- SCHEDULER POPOVER (shown when rescheduling from retry modal) -->
+        <div id="schedulerPopover" class="hidden absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-2xl px-5 pt-4 pb-4 z-30">
+
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-0.5">Reschedule Message</p>
+              <p class="text-xs text-gray-500">Choose a new send time for the failed message</p>
+            </div>
+            <button onclick="closeScheduler()" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 ml-4">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Timezone selector -->
+          <div class="mb-3">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Timezone</p>
+            <select id="tzSelect" class="w-full text-xs border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:border-blue-400 bg-white text-gray-700">
+              <option value="UTC">UTC (Coordinated Universal Time)</option>
+              <option value="PHT" selected>UTC+8 — Philippines (PHT)</option>
+              <option value="IST">UTC+5:30 — Sri Lanka / India (IST)</option>
+              <option value="CST">UTC−6 — Central Time (CST)</option>
+              <option value="CLIENT">Client local time — auto</option>
+            </select>
+          </div>
+
+          <!-- Quick options -->
+          <div class="flex gap-2 mb-4">
+            <button onclick="setQuick('tomorrow')" id="qTomorrow" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 text-gray-600 transition-colors">Tomorrow 9:00 AM</button>
+            <button onclick="setQuick('nextweek')" id="qNextweek" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 text-gray-600 transition-colors">Next Monday</button>
+            <button onclick="setQuick('custom')" id="qCustom" class="text-xs border border-blue-200 bg-blue-50 text-blue-600 rounded-lg px-3 py-1.5 transition-colors">Custom</button>
+          </div>
+
+          <div class="flex gap-6">
+            <!-- Calendar -->
+            <div class="flex-1">
+              <div class="flex items-center justify-between mb-2">
+                <button onclick="prevMonth()" class="w-6 h-6 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <span class="text-xs font-semibold text-gray-900" id="calMonthLabel">March 2026</span>
+                <button onclick="nextMonth()" class="w-6 h-6 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg>
+                </button>
+              </div>
+              <div class="grid grid-cols-7 mb-1">
+                <div class="text-center text-[10px] text-gray-400 py-0.5 font-medium">Su</div>
+                <div class="text-center text-[10px] text-gray-400 py-0.5 font-medium">Mo</div>
+                <div class="text-center text-[10px] text-gray-400 py-0.5 font-medium">Tu</div>
+                <div class="text-center text-[10px] text-gray-400 py-0.5 font-medium">We</div>
+                <div class="text-center text-[10px] text-gray-400 py-0.5 font-medium">Th</div>
+                <div class="text-center text-[10px] text-gray-400 py-0.5 font-medium">Fr</div>
+                <div class="text-center text-[10px] text-gray-400 py-0.5 font-medium">Sa</div>
+              </div>
+              <div class="grid grid-cols-7 gap-px" id="calendarGrid"></div>
+            </div>
+
+            <div class="w-px bg-gray-100 self-stretch"></div>
+
+            <!-- Time -->
+            <div class="w-40 shrink-0">
+              <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Time</p>
+              <div class="flex items-center gap-1">
+                <input type="number" id="tHour" min="1" max="12" value="9"
+                  class="w-10 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1.5 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                  onchange="updateSummary()">
+                <span class="text-gray-400 font-bold text-sm">:</span>
+                <input type="number" id="tMin" min="0" max="59" step="15" value="0"
+                  class="w-10 text-center text-sm font-semibold border border-gray-200 rounded-lg py-1.5 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+                  onchange="updateSummary()">
+                <select id="tAMPM" class="text-xs border border-gray-200 rounded-lg py-1.5 px-1 focus:outline-none focus:border-blue-400" onchange="updateSummary()">
+                  <option>AM</option>
+                  <option>PM</option>
+                </select>
+              </div>
+              <div id="selectedSummaryBox" class="hidden mt-3 bg-blue-50 rounded-lg px-3 py-2">
+                <p class="text-[10px] text-gray-400 mb-0.5">Will send on</p>
+                <p class="text-xs font-semibold text-blue-700" id="selectedSummaryText">—</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+            <button onclick="closeScheduler()" class="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+            <button onclick="confirmReschedule()" id="confirmBtn"
+              class="bg-gray-900 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+              disabled>
+              Confirm Reschedule
+            </button>
+          </div>
+        </div>
+
+        <!-- Composer form -->
+        <form class="border rounded-lg bg-white border-gray-200" onsubmit="return false">
+          <div class="flex items-center gap-1 px-2 bg-gray-50 border-b border-gray-200 rounded-t-lg" style="height:36px">
+            <button type="button" class="p-1 hover:bg-gray-200 rounded transition-colors text-gray-700" title="Bold">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5S13.83 9.5 13 9.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
+            </button>
+            <button type="button" class="p-1 hover:bg-gray-200 rounded transition-colors text-gray-700" title="Italic">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg>
+            </button>
+          </div>
+          <textarea id="messageInput" placeholder="Type a message..."
+            class="w-full p-3 pb-0 resize-none focus:outline-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400"
+            style="height:72px"></textarea>
+          <div class="flex items-end p-1 justify-between">
+            <div class="flex items-center gap-0.5">
+              <button type="button" class="p-1.5 rounded transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100" title="Attach">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              </button>
+              <button type="button" class="p-1.5 rounded transition-colors text-gray-400 hover:text-blue-500 hover:bg-blue-50" title="Schedule">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+                </svg>
+              </button>
+            </div>
+            <button type="button" class="p-1.5 rounded transition-colors text-gray-300 cursor-not-allowed" disabled>
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- ── RIGHT PANEL (360px) ── -->
+    <div class="flex-shrink-0 flex flex-col bg-white overflow-hidden" style="width:360px">
+      <div class="border-b border-gray-200 px-4 py-3 shrink-0" style="height:57px">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-5 h-5 rounded bg-gray-900 flex items-center justify-center">
+              <svg class="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-semibold text-gray-900">AI Context</span>
+          </div>
+          <span id="aiContextBadge" class="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">General Travel</span>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+        <!-- Scenario A: Failed delivery alert -->
+        <div id="aiAlertA" class="bg-red-50 rounded-xl p-3 border border-red-100">
+          <p class="text-[10px] font-bold uppercase tracking-widest text-red-400 mb-2">Delivery Failure</p>
+          <div class="flex items-start gap-2">
+            <svg class="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01"/>
+            </svg>
+            <div>
+              <p class="text-xs font-medium text-red-800">WhatsApp delivery failed</p>
+              <p class="text-xs text-red-600 mt-0.5">Original time: Mar 5, 9:00 AM UTC. Client last active: 2 days ago.</p>
+            </div>
+          </div>
+          <button onclick="openRetryModal()" class="mt-2 w-full text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg py-1.5 transition-colors">Retry message →</button>
+        </div>
+
+        <!-- Scenario B: Scheduled confirmation (hidden by default) -->
+        <div id="aiAlertB" class="hidden bg-blue-50 rounded-xl p-3 border border-blue-100">
+          <p class="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2">Upcoming Scheduled</p>
+          <div class="flex items-start gap-2">
+            <svg class="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+            </svg>
+            <div>
+              <p class="text-xs font-medium text-blue-800">Mar 10, 9:00 AM (UTC+8)</p>
+              <p class="text-xs text-blue-600 mt-0.5">Prahar typically responds within 2 hours of morning messages.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Client summary -->
+        <div class="bg-gray-50 rounded-xl p-3">
+          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Client Summary</p>
+          <div class="space-y-1.5" id="clientSummary">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">Trip</span>
+              <span class="text-xs font-medium text-gray-800">Big Sur — Jun 2026</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">Budget</span>
+              <span class="text-xs font-medium text-gray-800">$12,000</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">Pax</span>
+              <span class="text-xs font-medium text-gray-800">2 adults</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">Status</span>
+              <span class="text-xs font-medium text-amber-600">Awaiting response</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Pending items</p>
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2 text-xs text-gray-600">
+              <div class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></div>
+              <span id="pendingItem1">Pricing breakdown — failed to send</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-600">
+              <div class="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0"></div>
+              June availability check
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-600">
+              <div class="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0"></div>
+              Dining reservation shortlist
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="border-t border-gray-200 p-3 shrink-0">
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">
+          <input id="aiInput" type="text" placeholder="Ask anything about this client..." class="flex-1 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none bg-transparent" />
+          <button class="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="fixed top-4 right-4 z-40 flex gap-2">
+  <a href="s1-chat.html" class="text-xs bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50 shadow-sm">← S1</a>
+  <a href="s2-scheduled.html" class="text-xs bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50 shadow-sm">← S2</a>
+  <a href="index.html" class="text-xs bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50 shadow-sm">Overview</a>
+</div>
+
+<script>
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const TODAY = new Date(2026, 2, 9);
+
+  let calMonth = 2, calYear = 2026, selectedDate = null;
+  let schedulerOpen = false;
+
+  // ── SCENARIO SWITCHING ──
+
+  function switchScenario(scenario) {
+    closeScheduler();
+
+    const lauraConv = document.getElementById('convLaura');
+    const praharConv = document.getElementById('convPrahar');
+    const scenA = document.getElementById('scenarioA');
+    const scenB = document.getElementById('scenarioB');
+    const headerName = document.getElementById('headerName');
+    const headerSub = document.getElementById('headerSub');
+    const headerAvatar = document.getElementById('headerAvatar');
+    const headerBadge = document.getElementById('headerBadge');
+    const aiAlertA = document.getElementById('aiAlertA');
+    const aiAlertB = document.getElementById('aiAlertB');
+    const aiInput = document.getElementById('aiInput');
+
+    if (scenario === 'failed') {
+      // Activate Laura / Scenario A
+      lauraConv.className = 'py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 bg-blue-50';
+      praharConv.className = 'py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 hover:bg-gray-50';
+      scenA.classList.remove('hidden');
+      scenB.classList.add('hidden');
+      headerAvatar.className = 'w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700';
+      headerAvatar.textContent = 'LD';
+      headerName.textContent = 'Laura Duncan';
+      headerSub.textContent = 'Big Sur — June 2026';
+      headerBadge.className = 'inline-flex items-center gap-1 text-[10px] font-semibold bg-red-100 text-red-600 px-2 py-0.5 rounded-full';
+      headerBadge.innerHTML = '<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01"/></svg> 1 message failed';
+      aiAlertA.classList.remove('hidden');
+      aiAlertB.classList.add('hidden');
+      aiInput.placeholder = 'Ask anything about Laura...';
+    } else {
+      // Activate Prahar / Scenario B
+      praharConv.className = 'py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 bg-blue-50';
+      lauraConv.className = 'py-3 px-4 cursor-pointer transition-colors duration-200 border-b border-gray-100 hover:bg-gray-50';
+      scenA.classList.add('hidden');
+      scenB.classList.remove('hidden');
+      headerAvatar.className = 'w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-xs font-bold text-green-700';
+      headerAvatar.textContent = 'PS';
+      headerName.textContent = 'Prahar Shah';
+      headerSub.textContent = 'Japan — April 2026';
+      headerBadge.className = 'inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full';
+      headerBadge.innerHTML = '<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg> 1 message scheduled';
+      aiAlertA.classList.add('hidden');
+      aiAlertB.classList.remove('hidden');
+      aiInput.placeholder = 'Ask anything about Prahar...';
+    }
+
+    document.getElementById('messagesArea').scrollTop = document.getElementById('messagesArea').scrollHeight;
+  }
+
+  // ── RETRY MODAL ──
+
+  function openRetryModal() {
+    document.getElementById('retryModal').classList.remove('hidden');
+  }
+
+  function closeRetryModal() {
+    document.getElementById('retryModal').classList.add('hidden');
+  }
+
+  function sendNowFromRetry() {
+    closeRetryModal();
+    // Hide failed bubble, show sent bubble
+    document.getElementById('failedBubble').classList.add('hidden');
+    const sent = document.getElementById('sentBubble');
+    sent.classList.remove('hidden');
+    sent.style.display = 'flex';
+    // Update left panel badge
+    const badge = document.querySelector('#convLaura .inline-flex');
+    if (badge) {
+      badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-600';
+      badge.innerHTML = '<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Delivered';
+    }
+    // Update header badge
+    document.getElementById('headerBadge').className = 'inline-flex items-center gap-1 text-[10px] font-semibold bg-green-100 text-green-600 px-2 py-0.5 rounded-full';
+    document.getElementById('headerBadge').innerHTML = '<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Message delivered';
+    // Update AI alert
+    document.getElementById('aiAlertA').innerHTML = '<p class="text-[10px] font-bold uppercase tracking-widest text-green-600 mb-1">Delivered</p><div class="flex items-start gap-2"><svg class="w-3.5 h-3.5 text-green-500 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><p class="text-xs text-green-700">Message sent successfully just now.</p></div>';
+    document.getElementById('aiAlertA').className = 'bg-green-50 rounded-xl p-3 border border-green-100';
+    scrollToBottom();
+  }
+
+  function rescheduleFromRetry() {
+    closeRetryModal();
+    openScheduler();
+  }
+
+  // ── SCHEDULER ──
+
+  function openScheduler() {
+    schedulerOpen = true;
+    document.getElementById('schedulerPopover').classList.remove('hidden');
+    renderCalendar();
+  }
+
+  function closeScheduler() {
+    schedulerOpen = false;
+    document.getElementById('schedulerPopover').classList.add('hidden');
+  }
+
+  function confirmReschedule() {
+    if (!selectedDate) return;
+    const h = document.getElementById('tHour').value;
+    const m = String(document.getElementById('tMin').value).padStart(2, '0');
+    const ap = document.getElementById('tAMPM').value;
+    const tz = document.getElementById('tzSelect').options[document.getElementById('tzSelect').selectedIndex].text.split('—')[0].trim();
+    const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap} (${tz})`;
+
+    document.getElementById('rescheduledLabel').textContent = `Rescheduled · ${label}`;
+    document.getElementById('failedBubble').classList.add('hidden');
+    const resch = document.getElementById('rescheduledBubble');
+    resch.classList.remove('hidden');
+    resch.style.display = 'flex';
+
+    // Update header badge
+    document.getElementById('headerBadge').className = 'inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full';
+    document.getElementById('headerBadge').innerHTML = `<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg> Rescheduled`;
+
+    closeScheduler();
+    scrollToBottom();
+  }
+
+  // ── CALENDAR ──
+
+  function renderCalendar() {
+    document.getElementById('calMonthLabel').textContent = `${MONTHS[calMonth]} ${calYear}`;
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const prevDays = new Date(calYear, calMonth, 0).getDate();
+
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const el = document.createElement('div');
+      el.className = 'text-center text-[10px] text-gray-300 w-7 h-7 flex items-center justify-center mx-auto';
+      el.textContent = prevDays - i;
+      grid.appendChild(el);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(calYear, calMonth, d);
+      const isPast = date < TODAY;
+      const isToday = d === TODAY.getDate() && calMonth === TODAY.getMonth() && calYear === TODAY.getFullYear();
+      const isSel = selectedDate && d === selectedDate.getDate() && calMonth === selectedDate.getMonth() && calYear === selectedDate.getFullYear();
+      const btn = document.createElement('button');
+      btn.textContent = d;
+      btn.type = 'button';
+      if (isSel) btn.className = 'text-[10px] font-semibold text-white bg-gray-900 w-7 h-7 rounded-full flex items-center justify-center mx-auto';
+      else if (isToday) btn.className = 'text-[10px] font-medium text-gray-400 bg-gray-100 w-7 h-7 rounded-full flex items-center justify-center mx-auto cursor-default';
+      else if (isPast) btn.className = 'text-[10px] text-gray-300 w-7 h-7 flex items-center justify-center mx-auto cursor-not-allowed';
+      else {
+        btn.className = 'text-[10px] text-gray-700 hover:bg-blue-50 hover:text-blue-600 w-7 h-7 rounded-full flex items-center justify-center mx-auto cursor-pointer transition-colors';
+        btn.onclick = () => { selectedDate = new Date(calYear, calMonth, d); renderCalendar(); updateSummary(); };
+      }
+      grid.appendChild(btn);
+    }
+    const total = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+    for (let d = 1; d <= total - firstDay - daysInMonth; d++) {
+      const el = document.createElement('div');
+      el.className = 'text-center text-[10px] text-gray-300 w-7 h-7 flex items-center justify-center mx-auto';
+      el.textContent = d;
+      grid.appendChild(el);
+    }
+  }
+
+  function updateSummary() {
+    if (!selectedDate) return;
+    const h = document.getElementById('tHour').value;
+    const m = String(document.getElementById('tMin').value).padStart(2, '0');
+    const ap = document.getElementById('tAMPM').value;
+    document.getElementById('selectedSummaryText').textContent = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap}`;
+    document.getElementById('selectedSummaryBox').classList.remove('hidden');
+    document.getElementById('confirmBtn').disabled = false;
+  }
+
+  function prevMonth() { if (calMonth === 0) { calMonth = 11; calYear--; } else calMonth--; renderCalendar(); }
+  function nextMonth() { if (calMonth === 11) { calMonth = 0; calYear++; } else calMonth++; renderCalendar(); }
+
+  function setQuick(type) {
+    const base = 'text-xs border rounded-lg px-3 py-1.5 transition-colors';
+    const active = `${base} border-blue-200 bg-blue-50 text-blue-600`;
+    const inactive = `${base} border-gray-200 hover:bg-gray-50 text-gray-600`;
+    document.getElementById('qTomorrow').className = inactive;
+    document.getElementById('qNextweek').className = inactive;
+    document.getElementById('qCustom').className = inactive;
+    if (type === 'tomorrow') {
+      selectedDate = new Date(2026, 2, 10);
+      document.getElementById('tHour').value = 9;
+      document.getElementById('tMin').value = 0;
+      document.getElementById('tAMPM').value = 'AM';
+      document.getElementById('qTomorrow').className = active;
+    } else if (type === 'nextweek') {
+      selectedDate = new Date(2026, 2, 16);
+      document.getElementById('tHour').value = 9;
+      document.getElementById('tMin').value = 0;
+      document.getElementById('tAMPM').value = 'AM';
+      document.getElementById('qNextweek').className = active;
+    } else {
+      document.getElementById('qCustom').className = active;
+    }
+    if (selectedDate) { calMonth = selectedDate.getMonth(); calYear = selectedDate.getFullYear(); renderCalendar(); updateSummary(); }
+  }
+
+  function scrollToBottom() {
+    const area = document.getElementById('messagesArea');
+    setTimeout(() => area.scrollTop = area.scrollHeight, 50);
+  }
+
+  // Init
+  scrollToBottom();
+</script>
+
+</body>
+</html>
