@@ -258,8 +258,9 @@
       <!-- ── COMPOSER AREA ── -->
       <div class="bg-white border-t border-gray-200 p-4 shrink-0 relative" id="composerArea">
 
-        <!-- SCHEDULER POPOVER (sits above composer) -->
-        <div id="schedulerPopover" class="hidden absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-2xl px-5 pt-4 pb-4 z-30">
+        <!-- SCHEDULER MODAL (centered, fixed) -->
+        <div id="schedulerPopover" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50" onclick="if(event.target===this)closeScheduler()">
+        <div class="bg-white rounded-xl shadow-2xl w-[640px] max-h-[90vh] overflow-y-auto px-5 pt-4 pb-4 border border-gray-200">
 
           <div class="flex items-start justify-between mb-3">
             <div>
@@ -271,6 +272,14 @@
                 <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
+          </div>
+
+          <!-- Message to send -->
+          <div class="mb-4">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1.5">Message</label>
+            <textarea id="schedulerMsgInput" rows="3"
+              class="w-full text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none leading-relaxed"
+              placeholder="Type your message..."></textarea>
           </div>
 
           <!-- Quick options -->
@@ -377,7 +386,8 @@
             </button>
           </div>
 
-        </div>
+        </div><!-- end inner content -->
+        </div><!-- end backdrop -->
 
         <!-- The composer form (matching actual CC structure) -->
         <form class="border rounded-lg bg-white border-gray-200" onsubmit="return false">
@@ -690,6 +700,9 @@
 
   function openScheduler() {
     schedulerOpen = true;
+    // Pre-populate message textarea from composer
+    const composerVal = document.getElementById('messageInput').value;
+    document.getElementById('schedulerMsgInput').value = composerVal;
     document.getElementById('schedulerPopover').classList.remove('hidden');
     document.getElementById('scheduleBtn').className = 'p-1.5 rounded transition-colors text-blue-500 bg-blue-50';
     renderCalendar();
@@ -698,7 +711,10 @@
   function closeScheduler() {
     schedulerOpen = false;
     document.getElementById('schedulerPopover').classList.add('hidden');
-    document.getElementById('scheduleBtn').className = 'p-1.5 rounded transition-colors text-gray-400 hover:text-blue-500 hover:bg-blue-50';
+    // Only reset button style if not in scheduled state (don't override updateScheduleUI's disabled state)
+    if (!isScheduled) {
+      document.getElementById('scheduleBtn').className = 'p-1.5 rounded transition-colors text-gray-400 hover:text-blue-500 hover:bg-blue-50';
+    }
   }
 
   function toggleScheduler() {
@@ -714,11 +730,12 @@
     const tzLabel = tz === 'UTC+0' ? '(UTC)' : `(${tz})`;
     const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap} ${tzLabel}`;
 
-    const msgText = document.getElementById('messageInput').value;
+    const msgText = document.getElementById('schedulerMsgInput').value.trim() || document.getElementById('messageInput').value;
     document.getElementById('scheduledMsgText').textContent = msgText;
     document.getElementById('scheduledMsgLabel').textContent = `Scheduled · ${label}`;
     document.getElementById('scheduledMsgRow').style.display = 'flex';
     document.getElementById('messageInput').value = '';
+    document.getElementById('schedulerMsgInput').value = '';
     isScheduled = true;
     updateScheduleUI();
     updateSendBtn();

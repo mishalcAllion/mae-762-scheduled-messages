@@ -420,8 +420,9 @@
       <!-- ── COMPOSER AREA ── -->
       <div class="bg-white border-t border-gray-200 p-4 shrink-0 relative" id="composerArea">
 
-        <!-- SCHEDULER POPOVER (shown when rescheduling from retry modal) -->
-        <div id="schedulerPopover" class="hidden absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-2xl px-5 pt-4 pb-4 z-30">
+        <!-- SCHEDULER MODAL (centered, fixed) -->
+        <div id="schedulerPopover" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50" onclick="if(event.target===this)closeScheduler()">
+        <div class="bg-white rounded-xl shadow-2xl w-[640px] max-h-[90vh] overflow-y-auto px-5 pt-4 pb-4 border border-gray-200">
 
           <div class="flex items-start justify-between mb-3">
             <div>
@@ -435,15 +436,44 @@
             </button>
           </div>
 
+          <!-- Message to reschedule -->
+          <div class="mb-4">
+            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1.5">Message</label>
+            <textarea id="schedulerMsgInput" rows="3"
+              class="w-full text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 resize-none leading-relaxed"
+              placeholder="Type your message...">Hi Laura! Here's the pricing breakdown for Ventana Inn — standard rooms from $850/night. Want me to check availability for your June dates?</textarea>
+          </div>
+
           <!-- Timezone selector -->
           <div class="mb-3">
             <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Timezone</p>
-            <select id="tzSelect" class="w-full text-xs border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:border-blue-400 bg-white text-gray-700">
-              <option value="UTC">UTC (Coordinated Universal Time)</option>
-              <option value="PHT" selected>UTC+8 — Philippines (PHT)</option>
-              <option value="IST">UTC+5:30 — Sri Lanka / India (IST)</option>
-              <option value="CST">UTC−6 — Central Time (CST)</option>
-              <option value="CLIENT">Client local time — auto</option>
+            <select id="tzSelect" onchange="updateSummary()" class="w-full text-xs border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:border-blue-400 bg-white text-gray-700">
+              <option value="UTC+0" selected>UTC±00:00 — London, Dublin (UTC/GMT)</option>
+              <option value="UTC-12">UTC−12:00 — International Date Line West</option>
+              <option value="UTC-11">UTC−11:00 — Samoa, Midway Island</option>
+              <option value="UTC-10">UTC−10:00 — Hawaii</option>
+              <option value="UTC-9">UTC−9:00 — Alaska</option>
+              <option value="UTC-8">UTC−8:00 — Pacific Time (US &amp; Canada)</option>
+              <option value="UTC-7">UTC−7:00 — Mountain Time (US &amp; Canada)</option>
+              <option value="UTC-6">UTC−6:00 — Central Time (US &amp; Canada)</option>
+              <option value="UTC-5">UTC−5:00 — Eastern Time (US &amp; Canada)</option>
+              <option value="UTC-4">UTC−4:00 — Atlantic Time, Caracas</option>
+              <option value="UTC-3">UTC−3:00 — Buenos Aires, São Paulo</option>
+              <option value="UTC-2">UTC−2:00 — Mid-Atlantic</option>
+              <option value="UTC-1">UTC−1:00 — Azores</option>
+              <option value="UTC+1">UTC+01:00 — Paris, Berlin, Amsterdam</option>
+              <option value="UTC+2">UTC+02:00 — Cairo, Athens, Helsinki</option>
+              <option value="UTC+3">UTC+03:00 — Moscow, Kuwait, Riyadh</option>
+              <option value="UTC+4">UTC+04:00 — Dubai, Abu Dhabi</option>
+              <option value="UTC+5">UTC+05:00 — Islamabad, Karachi</option>
+              <option value="UTC+5:30">UTC+05:30 — Mumbai, Colombo, New Delhi</option>
+              <option value="UTC+6">UTC+06:00 — Dhaka, Almaty</option>
+              <option value="UTC+7">UTC+07:00 — Bangkok, Jakarta, Hanoi</option>
+              <option value="UTC+8">UTC+08:00 — Manila, Singapore, Beijing</option>
+              <option value="UTC+9">UTC+09:00 — Tokyo, Seoul</option>
+              <option value="UTC+10">UTC+10:00 — Sydney, Melbourne</option>
+              <option value="UTC+11">UTC+11:00 — Solomon Islands</option>
+              <option value="UTC+12">UTC+12:00 — Auckland, Fiji</option>
             </select>
           </div>
 
@@ -511,7 +541,9 @@
               Confirm Reschedule
             </button>
           </div>
-        </div>
+
+        </div><!-- end inner content -->
+        </div><!-- end backdrop -->
 
         <!-- Composer form -->
         <form class="border rounded-lg bg-white border-gray-200" onsubmit="return false">
@@ -771,8 +803,9 @@
     const h = document.getElementById('tHour').value;
     const m = String(document.getElementById('tMin').value).padStart(2, '0');
     const ap = document.getElementById('tAMPM').value;
-    const tz = document.getElementById('tzSelect').options[document.getElementById('tzSelect').selectedIndex].text.split('—')[0].trim();
-    const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap} (${tz})`;
+    const tz = document.getElementById('tzSelect').value;
+    const tzLabel = tz === 'UTC+0' ? '(UTC)' : `(${tz})`;
+    const label = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap} ${tzLabel}`;
 
     document.getElementById('rescheduledLabel').textContent = `Rescheduled · ${label}`;
     document.getElementById('failedBubble').classList.add('hidden');
@@ -836,7 +869,9 @@
     const h = document.getElementById('tHour').value;
     const m = String(document.getElementById('tMin').value).padStart(2, '0');
     const ap = document.getElementById('tAMPM').value;
-    document.getElementById('selectedSummaryText').textContent = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap}`;
+    const tz = document.getElementById('tzSelect').value;
+    const tzLabel = tz === 'UTC+0' ? '(UTC)' : `(${tz})`;
+    document.getElementById('selectedSummaryText').textContent = `${MONTHS_SHORT[selectedDate.getMonth()]} ${selectedDate.getDate()}, ${h}:${m} ${ap} ${tzLabel}`;
     document.getElementById('selectedSummaryBox').classList.remove('hidden');
     document.getElementById('confirmBtn').disabled = false;
   }
