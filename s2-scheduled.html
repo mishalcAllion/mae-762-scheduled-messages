@@ -65,7 +65,7 @@
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-lg font-bold text-gray-900 leading-none">Scheduled Messages</h1>
-          <p class="text-xs text-gray-400 mt-1" id="pendingCount">4 pending messages across all clients</p>
+          <p class="text-xs text-gray-400 mt-1" id="pendingCount">4 pending · <span class="text-red-500 font-medium">1 failed</span> across all clients</p>
         </div>
         <a href="s1-chat.html"
           class="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors">
@@ -284,6 +284,47 @@
             </td>
           </tr>
 
+          <!-- Row 5 — FAILED -->
+          <tr class="border-b border-gray-100 hover:bg-red-50/50 transition-colors bg-red-50/30 border-l-4 border-l-red-400" data-agent="Hannah" data-id="5" data-status="failed">
+            <td class="px-8 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 shrink-0">LD</div>
+                <div>
+                  <p class="text-sm font-semibold text-gray-900">Laura Duncan</p>
+                  <p class="text-[10px] text-gray-400 mt-0.5">Big Sur</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-4 max-w-xs">
+              <p class="text-sm text-gray-700 line-clamp-2" id="msg5-text">Hi Laura! Here's the pricing breakdown for Ventana Inn — standard rooms from $850/night. Want me to check availability for your June dates?</p>
+            </td>
+            <td class="px-4 py-4">
+              <div class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-red-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                <span class="text-sm text-red-600 font-medium" id="msg5-sched">Mar 5, 9:00 AM</span>
+              </div>
+              <span class="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 9v4m0 4h.01"/></svg>
+                Failed
+              </span>
+            </td>
+            <td class="px-4 py-4">
+              <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">Hannah</span>
+            </td>
+            <td class="px-4 py-4">
+              <div class="flex items-center gap-1">
+                <button onclick="openRetry(5)" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition-colors" title="Retry">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                  Retry
+                </button>
+              </div>
+            </td>
+          </tr>
+
         </tbody>
       </table>
 
@@ -399,6 +440,47 @@
   </div>
 </div>
 
+<!-- ── RETRY MODAL ── -->
+<div id="retryModal" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+  <div class="bg-white rounded-xl shadow-2xl w-[420px] p-6 border border-gray-200">
+    <div class="flex items-start gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900">Message failed to send</h3>
+        <p class="text-xs text-gray-500 mt-1 leading-relaxed">This message was scheduled for <strong class="text-gray-700" id="retrySchedTime">Mar 5, 9:00 AM</strong>. That time has passed — choose how to proceed.</p>
+      </div>
+    </div>
+    <!-- Message preview -->
+    <div class="bg-gray-50 rounded-xl p-3 mb-5 border border-gray-100">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Message Preview</p>
+      <p class="text-xs text-gray-700 leading-relaxed" id="retryMsgPreview"></p>
+    </div>
+    <!-- Actions -->
+    <div class="space-y-2.5">
+      <button onclick="retrySendNow()"
+        class="w-full flex items-center justify-center gap-2 bg-gray-900 text-white text-xs font-medium py-2.5 rounded-lg hover:bg-gray-700 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        Send Now
+      </button>
+      <button onclick="retryReschedule()"
+        class="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 text-xs font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+        </svg>
+        Reschedule
+      </button>
+      <button onclick="retryDiscard()"
+        class="w-full text-xs text-gray-400 hover:text-red-500 py-1.5 transition-colors">
+        Discard message
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Back to index -->
 <div class="fixed top-4 right-4 z-50">
   <a href="index.html" class="text-xs bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50 shadow-sm">← Back to overview</a>
@@ -421,9 +503,14 @@
       row.style.display = show ? '' : 'none';
       if (show) visible++;
     });
-    document.getElementById('pendingCount').textContent =
-      `${visible} pending message${visible !== 1 ? 's' : ''} across all clients`;
-    document.getElementById('emptyState').classList.toggle('hidden', visible > 0);
+    const visibleRows = [...document.querySelectorAll('#tableBody tr')].filter(r => r.style.display !== 'none');
+    const pending = visibleRows.filter(r => r.dataset.status !== 'failed').length;
+    const failed = visibleRows.filter(r => r.dataset.status === 'failed').length;
+    let label = `${pending} pending message${pending !== 1 ? 's' : ''}`;
+    if (failed > 0) label += ` · <span class="text-red-500 font-medium">${failed} failed</span>`;
+    label += ' across all clients';
+    document.getElementById('pendingCount').innerHTML = label;
+    document.getElementById('emptyState').classList.toggle('hidden', visibleRows.length > 0);
   }
 
   function openEdit(id) {
@@ -470,9 +557,103 @@
     });
   }
 
-  // Close modal on backdrop click
+  // --- Retry logic ---
+  let retryingId = null;
+
+  function openRetry(id) {
+    retryingId = id;
+    const msgEl = document.getElementById(`msg${id}-text`);
+    const schedEl = document.getElementById(`msg${id}-sched`);
+    document.getElementById('retryMsgPreview').textContent = msgEl ? msgEl.textContent.trim() : '';
+    document.getElementById('retrySchedTime').textContent = schedEl ? schedEl.textContent.trim() : '';
+    document.getElementById('retryModal').classList.remove('hidden');
+  }
+
+  function closeRetry() {
+    retryingId = null;
+    document.getElementById('retryModal').classList.add('hidden');
+  }
+
+  function retrySendNow() {
+    if (!retryingId) return;
+    removeFailedRow(retryingId);
+    closeRetry();
+  }
+
+  function retryReschedule() {
+    if (!retryingId) return;
+    // Convert failed row to pending — change styling back to normal
+    const row = document.querySelector(`#tableBody tr[data-id="${retryingId}"]`);
+    if (row) {
+      row.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white';
+      row.style.borderLeft = '';
+      row.dataset.status = 'pending';
+      // Restore scheduled-for cell to pending style
+      const schedCell = row.querySelector('td:nth-child(3)');
+      schedCell.innerHTML = `
+        <div class="flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/>
+          </svg>
+          <span class="text-sm text-gray-800 font-medium" id="msg${retryingId}-sched">Mar 11, 9:00 AM</span>
+        </div>`;
+      // Restore actions to Edit/Cancel
+      const actionsCell = row.querySelector('td:nth-child(5)');
+      actionsCell.innerHTML = `
+        <div class="flex items-center gap-1">
+          <button onclick="openEdit(${retryingId})" class="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="Edit">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <button onclick="cancelRow(${retryingId})" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="Cancel">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>`;
+    }
+    updateCounts();
+    closeRetry();
+  }
+
+  function retryDiscard() {
+    if (!retryingId) return;
+    if (!confirm('Discard this message? It will not be sent.')) return;
+    removeFailedRow(retryingId);
+    closeRetry();
+  }
+
+  function removeFailedRow(id) {
+    const rows = document.querySelectorAll('#tableBody tr');
+    rows.forEach(row => {
+      if (row.dataset.id === String(id)) {
+        row.style.transition = 'opacity 0.2s';
+        row.style.opacity = '0';
+        setTimeout(() => {
+          row.style.display = 'none';
+          row.style.opacity = '1';
+          updateCounts();
+        }, 200);
+      }
+    });
+  }
+
+  function updateCounts() {
+    const allRows = [...document.querySelectorAll('#tableBody tr')];
+    const visibleRows = allRows.filter(r => r.style.display !== 'none');
+    const pending = visibleRows.filter(r => r.dataset.status !== 'failed').length;
+    const failed = visibleRows.filter(r => r.dataset.status === 'failed').length;
+    let label = `${pending} pending message${pending !== 1 ? 's' : ''}`;
+    if (failed > 0) label += ` · <span class="text-red-500 font-medium">${failed} failed</span>`;
+    label += ' across all clients';
+    document.getElementById('pendingCount').innerHTML = label;
+    if (visibleRows.length === 0) document.getElementById('emptyState').classList.remove('hidden');
+    else document.getElementById('emptyState').classList.add('hidden');
+  }
+
+  // Close modals on backdrop click
   document.getElementById('editModal').addEventListener('click', function(e) {
     if (e.target === this) closeEdit();
+  });
+  document.getElementById('retryModal').addEventListener('click', function(e) {
+    if (e.target === this) closeRetry();
   });
 </script>
 

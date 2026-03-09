@@ -247,6 +247,8 @@
               </svg>
               <span class="text-xs text-blue-500 font-medium" id="scheduledMsgLabel">Scheduled · —</span>
               <span class="text-gray-300 text-xs">·</span>
+              <span class="text-xs text-gray-400" id="scheduledByLabel">by Hannah</span>
+              <span class="text-gray-300 text-xs">·</span>
               <button onclick="editScheduled()" class="text-xs text-gray-500 hover:text-gray-700 hover:underline">Edit</button>
               <button onclick="cancelScheduled()" class="text-xs text-red-400 hover:text-red-600 hover:underline">Cancel</button>
             </div>
@@ -758,6 +760,7 @@
     const msgText = document.getElementById('schedulerMsgInput').value.trim() || document.getElementById('messageInput').value;
     document.getElementById('scheduledMsgText').textContent = msgText;
     document.getElementById('scheduledMsgLabel').textContent = `Scheduled · ${label}`;
+    document.getElementById('scheduledByLabel').textContent = 'by Hannah';
     document.getElementById('scheduledMsgRow').style.display = 'flex';
     document.getElementById('messageInput').value = '';
     document.getElementById('schedulerMsgInput').value = '';
@@ -809,9 +812,39 @@
 
   function cancelScheduled() {
     if (confirm('Cancel this scheduled message? It will not be sent.')) {
-      document.getElementById('scheduledMsgRow').style.display = 'none';
+      const row = document.getElementById('scheduledMsgRow');
+      const bubble = row.querySelector('.border-dashed');
+      const label = document.getElementById('scheduledMsgLabel');
+      const byLabel = document.getElementById('scheduledByLabel');
+
+      // Change border from blue to gray
+      bubble.classList.remove('border-blue-200');
+      bubble.classList.add('border-gray-300', 'opacity-60');
+
+      // Update label to "Cancelled"
+      label.innerHTML = '<span class="line-through">Cancelled</span>';
+      label.className = 'text-xs text-gray-400 font-medium';
+
+      // Hide the "by" label and action buttons
+      byLabel.style.display = 'none';
+      const actions = row.querySelectorAll('button');
+      actions.forEach(btn => btn.style.display = 'none');
+
+      // Update clock icon to gray X
+      const clockIcon = row.querySelector('svg');
+      if (clockIcon) {
+        clockIcon.outerHTML = '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+      }
+
       isScheduled = false;
       updateScheduleUI();
+
+      // Fade out after 2 seconds
+      setTimeout(() => {
+        row.style.transition = 'opacity 0.5s ease-out';
+        row.style.opacity = '0';
+        setTimeout(() => { row.style.display = 'none'; row.style.opacity = '1'; }, 500);
+      }, 2000);
     }
   }
 
